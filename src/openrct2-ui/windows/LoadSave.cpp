@@ -29,6 +29,7 @@
 #include <openrct2/localisation/localisation.h>
 #include <openrct2/platform/platform.h>
 #include <openrct2/util/util.h>
+#include <openrct2/util/path.hpp>
 
 #pragma region Widgets
 
@@ -736,7 +737,9 @@ static void window_loadsave_invoke_callback(sint32 result, const utf8 * path)
 static void save_path(utf8 **config_str, const char *path)
 {
     free(*config_str);
-    *config_str = path_get_directory(path);
+    auto dir = OpenRCT2::path(path).parent_path();
+    // *config_str = path_get_directory(path);
+    *config_str = ::path_strdup(&dir);
     config_save_default();
 }
 
