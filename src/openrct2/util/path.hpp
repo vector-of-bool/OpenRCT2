@@ -1,6 +1,7 @@
 #ifndef UTIL_PATH_HPP_INCLUDED
 #define UTIL_PATH_HPP_INCLUDED
 
+#include <ostream>
 #include <string>
 
 #include "path.h"
@@ -20,6 +21,14 @@ public:
 private:
     string_type _str;
 
+    struct preprocessed_tag
+    {
+    };
+
+    path(preprocessed_tag, string_type && str) : _str(std::move(str))
+    {
+    }
+
 public:
     path() noexcept    = default;
     path(const path &) = default;
@@ -33,12 +42,39 @@ public:
     path & operator=(path &&) = default;
 
     path parent_path() const;
+    path filename() const;
 
     const char * data() const
     {
         return _str.data();
     }
+
+    const string_type & string() const
+    {
+        return _str;
+    }
 };
+
+inline bool operator==(const path & lhs, const path & rhs)
+{
+    return lhs.string() == rhs.string();
+}
+
+inline bool operator!=(const path & lhs, const path & rhs)
+{
+    return !(lhs == rhs);
+}
+
+inline std::ostream & operator<<(std::ostream & o, const path & p)
+{
+    o << '"' << p.string() << '"';
+    return o;
+}
+
+inline path operator/(const path & lhs, const path & rhs)
+{
+    return path{ lhs.string() + "/" + rhs.string() };
+}
 
 } // namespace OpenRCT2
 

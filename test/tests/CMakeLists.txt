@@ -79,6 +79,7 @@ set(COMMON_TEST_SOURCES
     "${ROOT_DIR}/src/openrct2/localisation/format_codes.c"
     "${ROOT_DIR}/src/openrct2/localisation/utf8.c"
     "${ROOT_DIR}/src/openrct2/util/util.c"
+    "${ROOT_DIR}/src/openrct2/util/path.cpp"
     "${ROOT_DIR}/src/openrct2/Version.cpp"
     )
 
@@ -144,6 +145,10 @@ target_link_libraries(test_string ${GTEST_LIBRARIES} test-common ${LDL} z)
 add_test(NAME string COMMAND test_string)
 
 
+add_executable(test_path "${CMAKE_CURRENT_LIST_DIR}/PathTest.cpp")
+target_link_libraries(test_path ${GTEST_LIBRARIES} test-common)
+add_test(NAME path COMMAND test_path)
+
 # Ride ratings test
 set(RIDE_RATINGS_TEST_SOURCES "${CMAKE_CURRENT_LIST_DIR}/RideRatings.cpp"
                               "${CMAKE_CURRENT_LIST_DIR}/TestData.cpp")
@@ -155,7 +160,7 @@ set(MULTILAUNCH_TEST_SOURCES "${CMAKE_CURRENT_LIST_DIR}/MultiLaunch.cpp"
                              "${CMAKE_CURRENT_LIST_DIR}/TestData.cpp")
 add_executable(test_multilaunch ${MULTILAUNCH_TEST_SOURCES})
 target_link_libraries(test_multilaunch ${GTEST_LIBRARIES} libopenrct2 ${LDL} z)
-    
+
 if (NOT DISABLE_RCT2_TESTS)
     add_test(NAME ride_ratings COMMAND test_ride_ratings)
     add_test(NAME multilaunch COMMAND test_multilaunch)
