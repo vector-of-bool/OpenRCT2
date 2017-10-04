@@ -87,16 +87,16 @@ path::path(path::string_type str)
     return new OpenRCT2::path;
 }
 
-void ::path_free(::orct2_path p)
+void path_free(::orct2_path p)
 {
     delete static_cast<OpenRCT2::path *>(p);
 }
 
-const char* ::path_c_str(::orct2_path p) {
+const char* path_c_str(::orct2_path p) {
     return static_cast<OpenRCT2::path*>(p)->data();
 }
 
-char * ::path_strdup(::orct2_path p)
+char * path_strdup(::orct2_path p)
 {
     return ::_strdup(::path_c_str(p));
 }
