@@ -37,18 +37,23 @@
 #include "../localisation/language.h"
 #include "../OpenRCT2.h"
 #include "../util/util.h"
+#include "../util/filesystem.hpp"
+#include "../core/Util.hpp"
+#include "../core/Math.hpp"
 #include "platform.h"
 // The name of the mutex used to prevent multiple instances of the game from running
 #define SINGLE_INSTANCE_MUTEX_NAME "openrct2.lock"
 
 #define FILE_BUFFER_SIZE 4096
 
-utf8 _userDataDirectoryPath[MAX_PATH] = { 0 };
-utf8 _openrctDataDirectoryPath[MAX_PATH] = { 0 };
+using OpenRCT2::path;
+
+path _userDataDirectoryPath;
+path _openrctDataDirectoryPath;
 
 void platform_get_date_utc(rct2_date *out_date)
 {
-    assert(out_date != NULL);
+    assert(out_date != nullptr);
     time_t rawtime;
     struct tm * timeinfo;
     time(&rawtime);
@@ -61,7 +66,7 @@ void platform_get_date_utc(rct2_date *out_date)
 
 void platform_get_time_utc(rct2_time *out_time)
 {
-    assert(out_time != NULL);
+    assert(out_time != nullptr);
     time_t rawtime;
     struct tm * timeinfo;
     time(&rawtime);
@@ -73,7 +78,7 @@ void platform_get_time_utc(rct2_time *out_time)
 
 void platform_get_date_local(rct2_date *out_date)
 {
-    assert(out_date != NULL);
+    assert(out_date != nullptr);
     time_t rawtime;
     struct tm * timeinfo;
     time(&rawtime);
@@ -86,7 +91,7 @@ void platform_get_date_local(rct2_date *out_date)
 
 void platform_get_time_local(rct2_time *out_time)
 {
-    assert(out_time != NULL);
+    assert(out_time != nullptr);
     time_t rawtime;
     struct tm * timeinfo;
     time(&rawtime);
@@ -100,7 +105,7 @@ static size_t platform_utf8_to_multibyte(const utf8 *path, char *buffer, size_t 
 {
     wchar_t *wpath = utf8_to_widechar(path);
     setlocale(LC_CTYPE, "UTF-8");
-    size_t len = wcstombs(NULL, wpath, 0);
+    size_t len = wcstombs(nullptr, wpath, 0);
     bool truncated = false;
     if (len > buffer_size - 1) {
         truncated = true;
@@ -148,16 +153,11 @@ bool platform_original_game_data_exists(const utf8 *path)
     return platform_file_exists(checkPath);
 }
 
-static mode_t getumask()
+bool platform_ensure_directory_exists(const utf8 *path)
 {
     mode_t mask = umask(0);
     umask(mask);
-    return 0777 & ~mask; // Keep in mind 0777 is octal
-}
-
-bool platform_ensure_directory_exists(const utf8 *path)
-{
-    mode_t mask = getumask();
+    mask = 0777 & ~mask;
     char buffer[MAX_PATH];
     platform_utf8_to_multibyte(path, buffer, MAX_PATH);
 
@@ -200,15 +200,15 @@ bool platform_directory_delete(const utf8 *path)
     // fts_open only accepts non const paths, so we have to take a copy
     char* ourPath = _strdup(path);
 
-    utf8* const patharray[2] = {ourPath, NULL};
-    if ((ftsp = fts_open(patharray, FTS_COMFOLLOW | FTS_LOGICAL | FTS_NOCHDIR, NULL)) == NULL) {
-        log_error("fts_open returned NULL");
+    utf8* const patharray[2] = {ourPath, nullptr};
+    if ((ftsp = fts_open(patharray, FTS_COMFOLLOW | FTS_LOGICAL | FTS_NOCHDIR, nullptr)) == nullptr) {
+        log_error("fts_open returned nullptr");
         free(ourPath);
         return false;
     }
 
     chp = fts_children(ftsp, 0);
-    if (chp == NULL) {
+    if (chp == nullptr) {
         log_verbose("No files to traverse, deleting directory %s", path);
         if (remove(path) != 0)
         {
@@ -218,7 +218,7 @@ bool platform_directory_delete(const utf8 *path)
         return true; // No files to traverse
     }
 
-    while ((p = fts_read(ftsp)) != NULL) {
+    while ((p = fts_read(ftsp)) != nullptr) {
         switch (p->fts_info) {
             case FTS_DP: // Directory postorder, which means
                          // the directory is empty
@@ -252,7 +252,7 @@ utf8 * platform_get_absolute_path(const utf8 * relative_path, const utf8 * base_
 {
     utf8 path[MAX_PATH];
 
-    if (base_path != NULL)
+    if (base_path != nullptr)
     {
         snprintf(path, MAX_PATH, "%s/%s", base_path, relative_path);
     }
@@ -260,22 +260,19 @@ utf8 * platform_get_absolute_path(const utf8 * relative_path, const utf8 * base_
     {
         safe_strcpy(path, base_path, MAX_PATH);
     }
-    return realpath(path,NULL);
+    return realpath(path,nullptr);
 }
 
 
 bool platform_lock_single_instance()
 {
-    char pidFilePath[MAX_PATH];
-
-    safe_strcpy(pidFilePath, _userDataDirectoryPath, sizeof(pidFilePath));
-    safe_strcat_path(pidFilePath, SINGLE_INSTANCE_MUTEX_NAME, sizeof(pidFilePath));
+    const auto lock_path = _userDataDirectoryPath / SINGLE_INSTANCE_MUTEX_NAME;
 
     // We will never close this file manually. The operating system will
     // take care of that, because flock keeps the lock as long as the
     // file is open and closes it automatically on file close.
     // This is intentional.
-    sint32 pidFile = open(pidFilePath, O_CREAT | O_RDWR, 0666);
+    sint32 pidFile = open(lock_path.data(), O_CREAT | O_RDWR, 0666);
 
     if (pidFile == -1) {
         log_warning("Cannot open lock file for writing.");
@@ -308,8 +305,8 @@ char *g_file_pattern;
 static sint32 winfilter(const struct dirent *d)
 {
     sint32 entry_length = strnlen(d->d_name, MAX_PATH);
-    char *name_upper = malloc(entry_length + 1);
-    if (name_upper == NULL)
+    char *name_upper = (char*)malloc(entry_length + 1);
+    if (name_upper == nullptr)
     {
         log_error("out of memory");
         return 0;
@@ -334,7 +331,7 @@ sint32 platform_enumerate_files_begin(const utf8 *pattern)
 
     char *file_name = strrchr(npattern, *PREFERRED_PATH_SEPARATOR);
     char *dir_name;
-    if (file_name != NULL)
+    if (file_name != nullptr)
     {
         dir_name = strndup(npattern, file_name - npattern);
         file_name = &file_name[1];
@@ -352,7 +349,7 @@ sint32 platform_enumerate_files_begin(const utf8 *pattern)
     }
     log_verbose("looking for file matching %s", g_file_pattern);
     sint32 cnt;
-    for (sint32 i = 0; i < countof(_enumerateFileInfoList); i++) {
+    for (sint32 i = 0; i < Util::CountOf(_enumerateFileInfoList); i++) {
         enumFileInfo = &_enumerateFileInfoList[i];
         if (!enumFileInfo->active) {
             safe_strcpy(enumFileInfo->pattern, npattern, sizeof(enumFileInfo->pattern));
@@ -363,7 +360,7 @@ sint32 platform_enumerate_files_begin(const utf8 *pattern)
             }
             log_verbose("found %d files matching in dir '%s'", cnt, dir_name);
             enumFileInfo->cnt = cnt;
-            enumFileInfo->paths = malloc(cnt * sizeof(char *));
+            enumFileInfo->paths = (char**)malloc(cnt * sizeof(char *));
             char **paths = enumFileInfo->paths;
             // 256 is size of dirent.d_name
             const sint32 dir_name_len = strnlen(dir_name, MAX_PATH);
@@ -371,9 +368,9 @@ sint32 platform_enumerate_files_begin(const utf8 *pattern)
             {
                 struct dirent *d = enumFileInfo->fileListTemp[idx];
                 const sint32 entry_len = strnlen(d->d_name, MAX_PATH);
-                // 1 for separator, 1 for trailing null
-                size_t path_len = sizeof(char) * min(MAX_PATH, entry_len + dir_name_len + 2);
-                paths[idx] = malloc(path_len);
+                // 1 for separator, 1 for trailing nullptr
+                size_t path_len = sizeof(char) * Math::Min(MAX_PATH, entry_len + dir_name_len + 2);
+                paths[idx] = (char*)malloc(path_len);
                 log_verbose("dir_name: %s", dir_name);
                 safe_strcpy(paths[idx], dir_name, path_len);
                 safe_strcat_path(paths[idx], d->d_name, path_len);
@@ -394,14 +391,14 @@ sint32 platform_enumerate_files_begin(const utf8 *pattern)
             enumFileInfo->active = 1;
             free(dir_name);
             free(g_file_pattern);
-            g_file_pattern = NULL;
+            g_file_pattern = nullptr;
             return i;
         }
     }
 
     free(dir_name);
     free(g_file_pattern);
-    g_file_pattern = NULL;
+    g_file_pattern = nullptr;
     return -1;
 }
 
@@ -456,7 +453,7 @@ void platform_enumerate_files_end(sint32 handle)
     free(enumFileInfo->fileListTemp);
     free(enumFileInfo->paths);
     // FIXME: this here could have a bug
-    enumFileInfo->fileListTemp = NULL;
+    enumFileInfo->fileListTemp = nullptr;
     enumFileInfo->handle = 0;
     enumFileInfo->active = 0;
 }
@@ -488,7 +485,7 @@ sint32 platform_enumerate_directories_begin(const utf8 *directory)
     // TODO: add some checking for stringness and directoryness
 
     sint32 cnt;
-    for (sint32 i = 0; i < countof(_enumerateFileInfoList); i++) {
+    for (sint32 i = 0; i < Util::CountOf(_enumerateFileInfoList); i++) {
         enumFileInfo = &_enumerateFileInfoList[i];
         if (!enumFileInfo->active) {
             safe_strcpy(enumFileInfo->pattern, npattern, length);
@@ -499,7 +496,7 @@ sint32 platform_enumerate_directories_begin(const utf8 *directory)
             }
             log_verbose("found %d files in dir '%s'", cnt, npattern);
             enumFileInfo->cnt = cnt;
-            enumFileInfo->paths = malloc(cnt * sizeof(char *));
+            enumFileInfo->paths = (char**)malloc(cnt * sizeof(char *));
             char **paths = enumFileInfo->paths;
             // 256 is size of dirent.d_name
             const sint32 dir_name_len = strnlen(npattern, MAX_PATH);
@@ -507,9 +504,9 @@ sint32 platform_enumerate_directories_begin(const utf8 *directory)
             {
                 struct dirent *d = enumFileInfo->fileListTemp[idx];
                 const sint32 entry_len = strnlen(d->d_name, MAX_PATH);
-                // 1 for separator, 1 for trailing null
-                size_t path_len = sizeof(char) * min(MAX_PATH, entry_len + dir_name_len + 2);
-                paths[idx] = malloc(path_len);
+                // 1 for separator, 1 for trailing nullptr
+                size_t path_len = sizeof(char) * Math::Min(MAX_PATH, entry_len + dir_name_len + 2);
+                paths[idx] = (char*)malloc(path_len);
                 log_verbose("dir_name: %s", npattern);
                 safe_strcpy(paths[idx], npattern, path_len);
                 safe_strcat_path(paths[idx], d->d_name, path_len);
@@ -575,7 +572,7 @@ void platform_enumerate_directories_end(sint32 handle)
     free(enumFileInfo->fileListTemp);
     free(enumFileInfo->paths);
     // FIXME: this here could have a bug
-    enumFileInfo->fileListTemp = NULL;
+    enumFileInfo->fileListTemp = nullptr;
     enumFileInfo->handle = 0;
     enumFileInfo->active = 0;
 }
@@ -587,74 +584,30 @@ sint32 platform_get_drives(){
 
 bool platform_file_copy(const utf8 *srcPath, const utf8 *dstPath, bool overwrite)
 {
-    log_verbose("Copying %s to %s", srcPath, dstPath);
-
-    FILE *dstFile;
-
-    if (overwrite) {
-        dstFile = fopen(dstPath, "wb");
-    } else {
-        // Portability note: check your libc's support for "wbx"
-        dstFile = fopen(dstPath, "wbx");
-    }
-
-    if (dstFile == NULL) {
-        if (errno == EEXIST) {
-            log_warning("platform_file_copy: Not overwriting %s, because overwrite flag == false", dstPath);
-            return false;
-        }
-
-        log_error("Could not open destination file %s for copying", dstPath);
-        return false;
-    }
-
-    // Open both files and check whether they are opened correctly
-    FILE *srcFile = fopen(srcPath, "rb");
-    if (srcFile == NULL) {
-        fclose(dstFile);
-        log_error("Could not open source file %s for copying", srcPath);
-        return false;
-    }
-
-    size_t amount_read = 0;
-    size_t file_offset = 0;
-
-    // Copy file in FILE_BUFFER_SIZE-d chunks
-    char* buffer = (char*) malloc(FILE_BUFFER_SIZE);
-    while ((amount_read = fread(buffer, FILE_BUFFER_SIZE, 1, srcFile))) {
-        fwrite(buffer, amount_read, 1, dstFile);
-        file_offset += amount_read;
-    }
-
-    // Finish the left-over data from file, which may not be a full
-    // FILE_BUFFER_SIZE-d chunk.
-    fseek(srcFile, file_offset, SEEK_SET);
-    amount_read = fread(buffer, 1, FILE_BUFFER_SIZE, srcFile);
-    fwrite(buffer, amount_read, 1, dstFile);
-
-    fclose(srcFile);
-    fclose(dstFile);
-    free(buffer);
-
-    return true;
+    std::error_code ec;
+    copy(path{srcPath}, path{dstPath}, overwrite ? OpenRCT2::copy_options::overwrite_existing : OpenRCT2::copy_options::none, ec);
+    return !ec;
 }
 
 bool platform_file_move(const utf8 *srcPath, const utf8 *dstPath)
 {
-    return rename(srcPath, dstPath) == 0;
+    std::error_code ec;
+    rename(path{srcPath}, path{dstPath}, ec);
+    return !ec;
 }
 
-bool platform_file_delete(const utf8 *path)
+bool platform_file_delete(const utf8 *p)
 {
-    sint32 ret = unlink(path);
-    return ret == 0;
+    std::error_code ec;
+    remove(path{p}, ec);
+    return !ec;
 }
 
 static wchar_t *regular_to_wchar(const char* src)
 {
     sint32 len = strnlen(src, MAX_PATH);
-    wchar_t *w_buffer = malloc((len + 1) * sizeof(wchar_t));
-    mbtowc (NULL, NULL, 0);  /* reset mbtowc */
+    wchar_t *w_buffer = (wchar_t*)malloc((len + 1) * sizeof(wchar_t));
+    mbtowc (nullptr, nullptr, 0);  /* reset mbtowc */
 
     sint32 max = len;
     sint32 i = 0;
@@ -680,26 +633,25 @@ static wchar_t *regular_to_wchar(const char* src)
  */
 void platform_resolve_user_data_path()
 {
-
     if (gCustomUserDataPath[0] != 0) {
         if (!platform_ensure_directory_exists(gCustomUserDataPath)) {
             log_error("Failed to create directory \"%s\", make sure you have permissions.", gCustomUserDataPath);
             return;
         }
-        char *path;
-        if ((path = realpath(gCustomUserDataPath, NULL)) == NULL) {
+        char *c_path;
+        if ((c_path = realpath(gCustomUserDataPath, nullptr)) == nullptr) {
             log_error("Could not resolve path \"%s\"", gCustomUserDataPath);
             return;
         }
 
-        safe_strcpy(_userDataDirectoryPath, path, MAX_PATH);
-        free(path);
+        _userDataDirectoryPath = c_path;
+        free(c_path);
 
         // Ensure path ends with separator
-        path_end_with_separator(_userDataDirectoryPath, MAX_PATH);
-        log_verbose("User data path resolved to: %s", _userDataDirectoryPath);
-        if (!platform_directory_exists(_userDataDirectoryPath)) {
-            log_error("Custom user data directory %s does not exist", _userDataDirectoryPath);
+        // path_end_with_separator(_userDataDirectoryPath, MAX_PATH); // TODO
+        log_verbose("User data path resolved to: %s", _userDataDirectoryPath.data());
+        if (!platform_directory_exists(_userDataDirectoryPath.data())) {
+            log_error("Custom user data directory %s does not exist", _userDataDirectoryPath.data());
         }
         return;
     }
@@ -714,16 +666,16 @@ void platform_resolve_user_data_path()
     sint32 len = strnlen(buffer, MAX_PATH);
     wchar_t *w_buffer = regular_to_wchar(buffer);
     w_buffer[len] = '\0';
-    utf8 *path = widechar_to_utf8(w_buffer);
+    utf8 *c_path = widechar_to_utf8(w_buffer);
     free(w_buffer);
-    safe_strcpy(_userDataDirectoryPath, path, MAX_PATH);
-    free(path);
-    log_verbose("User data path resolved to: %s", _userDataDirectoryPath);
+    _userDataDirectoryPath = c_path;
+    free(c_path);
+    log_verbose("User data path resolved to: %s", _userDataDirectoryPath.data());
 }
 
 void platform_get_openrct_data_path(utf8 *outPath, size_t outSize)
 {
-    safe_strcpy(outPath, _openrctDataDirectoryPath, outSize);
+    safe_strcpy(outPath, _openrctDataDirectoryPath.data(), outSize);
 }
 
 /**
@@ -735,52 +687,65 @@ void platform_get_openrct_data_path(utf8 *outPath, size_t outSize)
 void platform_resolve_openrct_data_path()
 {
     if (gCustomOpenrctDataPath[0] != 0) {
-        // NOTE: second argument to `realpath` is meant to either be NULL or `PATH_MAX`-sized buffer,
-        // since our `MAX_PATH` macro is set to some other value, pass NULL to have `realpath` return
+        // NOTE: second argument to `realpath` is meant to either be nullptr or `PATH_MAX`-sized buffer,
+        // since our `MAX_PATH` macro is set to some other value, pass nullptr to have `realpath` return
         // a `malloc`ed buffer.
-        char *resolved_path = realpath(gCustomOpenrctDataPath, NULL);
-        if (resolved_path == NULL) {
+        char *resolved_path = realpath(gCustomOpenrctDataPath, nullptr);
+        if (resolved_path == nullptr) {
             log_error("Could not resolve path \"%s\", errno = %d", gCustomOpenrctDataPath, errno);
-            return;
         } else {
-            safe_strcpy(_openrctDataDirectoryPath, resolved_path, MAX_PATH);
-            free(resolved_path);
+            _openrctDataDirectoryPath = resolved_path;
         }
-
-        path_end_with_separator(_openrctDataDirectoryPath, MAX_PATH);
+        free(resolved_path);
         return;
     }
 
     char buffer[MAX_PATH];
     platform_get_exe_path(buffer, sizeof(buffer));
 
-    safe_strcat_path(buffer, "data", MAX_PATH);
-    log_verbose("Looking for OpenRCT2 data in %s", buffer);
-    if (platform_directory_exists(buffer))
+    // Look for a `data` directory in the directory of the executable
+    const path bindir  = buffer;
+    const path datadir = bindir / "data";
+    if (is_directory(datadir))
     {
-        _openrctDataDirectoryPath[0] = '\0';
-        safe_strcpy(_openrctDataDirectoryPath, buffer, MAX_PATH);
-        log_verbose("Found OpenRCT2 data in %s", _openrctDataDirectoryPath);
+        _openrctDataDirectoryPath = datadir;
         return;
     }
 
-    platform_posix_sub_resolve_openrct_data_path(_openrctDataDirectoryPath, sizeof(_openrctDataDirectoryPath));
-    log_verbose("Trying to use OpenRCT2 data in %s", _openrctDataDirectoryPath);
+    // Check for the `share` directory, relative to the installed binary
+    const path sharedir = bindir / "../share/openrct2";
+    if (is_directory(sharedir))
+    {
+        _openrctDataDirectoryPath = sharedir;
+        return;
+    }
+
+    // Try a few other locations
+    platform_posix_sub_resolve_openrct_data_path(buffer, sizeof(buffer));
+    _openrctDataDirectoryPath = buffer;
+    log_verbose("Trying to use OpenRCT2 data in %s", _openrctDataDirectoryPath.data());
 }
 
 void platform_get_user_directory(utf8 *outPath, const utf8 *subDirectory, size_t outSize)
 {
-    char buffer[MAX_PATH];
-    safe_strcpy(buffer, _userDataDirectoryPath, sizeof(buffer));
-    if (subDirectory != NULL && subDirectory[0] != 0) {
-        log_verbose("adding subDirectory '%s'", subDirectory);
-        safe_strcat_path(buffer, subDirectory, sizeof(buffer));
-        path_end_with_separator(buffer, sizeof(buffer));
+    if (!subDirectory) {
+        subDirectory = "";
     }
-    sint32 len = strnlen(buffer, MAX_PATH);
-    wchar_t *w_buffer = regular_to_wchar(buffer);
-    w_buffer[len] = '\0';
-    utf8 *path = widechar_to_utf8(w_buffer);
+
+    const auto   full_path        = _userDataDirectoryPath / subDirectory;
+    const auto & path_str         = full_path.string();
+    char         buffer[MAX_PATH] = { 0 };
+    if (path_str.size() > sizeof(buffer) - 1)
+    {
+        log_fatal("Path is too long! %s", path_str.data());
+        return;
+    }
+    *std::copy(begin(path_str), end(path_str), buffer) = '\0';
+    path_end_with_separator(buffer, sizeof(buffer));
+
+    wchar_t * w_buffer        = regular_to_wchar(buffer);
+    w_buffer[path_str.size()] = '\0';
+    utf8 * path               = widechar_to_utf8(w_buffer);
     free(w_buffer);
     safe_strcpy(outPath, path, outSize);
     free(path);
@@ -803,7 +768,7 @@ uint8 platform_get_locale_temperature_format(){
     const char *langstring = setlocale(LC_ALL, "");
 #endif
 
-    if(langstring != NULL){
+    if(langstring != nullptr){
         if (!fnmatch("*_US*", langstring, 0) ||
             !fnmatch("*_BS*", langstring, 0) ||
             !fnmatch("*_BZ*", langstring, 0) ||
@@ -825,7 +790,7 @@ datetime64 platform_get_datetime_now_utc()
     const datetime64 epochAsTicks = 621355968000000000;
 
     struct timeval tv;
-    gettimeofday(&tv, NULL);
+    gettimeofday(&tv, nullptr);
 
     // Epoch starts from: 1970-01-01T00:00:00Z
     // Convert to ticks from 0001-01-01T00:00:00Z
@@ -840,7 +805,7 @@ utf8* platform_get_username() {
     if (pw) {
         return pw->pw_name;
     } else {
-        return NULL;
+        return nullptr;
     }
 }
 

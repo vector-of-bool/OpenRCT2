@@ -37,6 +37,7 @@ public:
     path(const char * str) : path{ string_type{ str } }
     {
     }
+    path(decltype(nullptr)) = delete;
 
     path & operator=(const path &) = default;
     path & operator=(path &&) = default;
