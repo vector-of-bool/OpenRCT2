@@ -27,10 +27,10 @@
 #include "interface/widget.h"
 #include "interface/window.h"
 #include "localisation/localisation.h"
-#include "management/finance.h"
+#include "management/Finance.h"
 #include "management/marketing.h"
 #include "management/news_item.h"
-#include "management/research.h"
+#include "management/Research.h"
 #include "network/network.h"
 #include "object.h"
 #include "OpenRCT2.h"
@@ -82,7 +82,7 @@ uint32 gCurrentTicks;
 GAME_COMMAND_CALLBACK_POINTER* game_command_callback = 0;
 GAME_COMMAND_CALLBACK_POINTER* game_command_callback_table[] = {
     0,
-    game_command_callback_ride_construct_new,
+    0,
     game_command_callback_ride_construct_placed_front,
     game_command_callback_ride_construct_placed_back,
     game_command_callback_ride_remove_track_piece,
@@ -383,6 +383,10 @@ void game_update()
 
 void game_logic_update()
 {
+    gScreenAge++;
+    if (gScreenAge == 0)
+        gScreenAge--;
+
     network_update();
 
     if (network_get_mode() == NETWORK_MODE_CLIENT && network_get_status() == NETWORK_STATUS_CONNECTED && network_get_authstatus() == NETWORK_AUTH_OK) {
@@ -393,14 +397,17 @@ void game_logic_update()
         }
     }
 
-    // Separated out processing commands in network_update which could call scenario_rand where gInUpdateCode is false.
-    // All commands that are received are first queued and then executed where gInUpdateCode is set to true.
-    network_process_game_commands();
-
-    gScreenAge++;
-    if (gScreenAge == 0)
-        gScreenAge--;
-
+    if (network_get_mode() == NETWORK_MODE_SERVER)
+    {
+        // Send current tick out.
+        network_send_tick();
+    }
+    else if (network_get_mode() == NETWORK_MODE_CLIENT)
+    {
+        // Check desync.
+        network_check_desynchronization();
+    }
+    
     sub_68B089();
     scenario_update();
     climate_update();
@@ -444,6 +451,12 @@ void game_logic_update()
     if (gLastAutoSaveUpdate == AUTOSAVE_PAUSE) {
         gLastAutoSaveUpdate = platform_get_ticks();
     }
+
+    // Separated out processing commands in network_update which could call scenario_rand where gInUpdateCode is false.
+    // All commands that are received are first queued and then executed where gInUpdateCode is set to true.
+    network_process_game_commands();
+
+    network_flush();
 
     gCurrentTicks++;
     gScenarioTicks++;
@@ -1165,6 +1178,10 @@ void game_load_init()
         }
         mainWindow->saved_view_x -= mainWindow->viewport->view_width >> 1;
         mainWindow->saved_view_y -= mainWindow->viewport->view_height >> 1;
+
+        // Make sure the viewport has correct coordinates set.
+        viewport_update_position(mainWindow);
+
         window_invalidate(mainWindow);
     }
 
@@ -1174,7 +1191,11 @@ void game_load_init()
     }
     reset_all_sprite_quadrant_placements();
     scenery_set_default_placement_configuration();
-    window_new_ride_init_vars();
+
+    Intent * intent = intent_create(INTENT_ACTION_REFRESH_NEW_RIDES);
+    context_broadcast_intent(intent);
+    intent_release(intent);
+
     gWindowUpdateTicks = 0;
 
     load_palette();
@@ -1460,7 +1481,6 @@ void game_init_all(sint32 mapSize)
     gNextGuestNumber = 1;
 
     context_init();
-    window_new_ride_init_vars();
     scenery_set_default_placement_configuration();
     window_tile_inspector_clear_clipboard();
     load_palette();

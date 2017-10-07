@@ -5,6 +5,7 @@
 #include "../interface/window.h"
 #ifdef __cplusplus
 #include <map>
+#include <string>
 #endif // __cplusplus
 
 
@@ -17,7 +18,7 @@ struct IntentData
         uint32 unsignedInt;
         sint32 signedInt;
     } intVal;
-    utf8string stringVal;
+    std::string stringVal;
     void * pointerVal;
 };
 
@@ -30,13 +31,13 @@ public:
     explicit Intent(rct_windowclass windowclass);
     rct_windowclass GetWindowClass();
     void * GetPointerExtra(uint32 key);
-    utf8string GetStringExtra(uint32 key);
+    std::string GetStringExtra(uint32 key);
     uint32 GetUIntExtra(uint32 key);
     sint32 GetSIntExtra(uint32 key);
     Intent * putExtra(uint32 key, uint32 value);
     Intent * putExtra(uint32 key, void * value);
     Intent * putExtra(uint32 key, sint32 value);
-    Intent * putExtra(uint32 key, utf8string value);
+    Intent * putExtra(uint32 key, std::string value);
 };
 #else
 // Allow C code to use `Intent *`
@@ -57,6 +58,14 @@ extern "C" {
         INTENT_EXTRA_LOADSAVE_TYPE,
         INTENT_EXTRA_CALLBACK,
         INTENT_EXTRA_TRACK_DESIGN,
+        INTENT_EXTRA_RIDE_TYPE,
+        INTENT_EXTRA_RIDE_ENTRY_INDEX,
+    };
+
+    enum {
+        INTENT_ACTION_MAP,
+        INTENT_ACTION_NEW_RIDE_OF_TYPE,
+        INTENT_ACTION_REFRESH_NEW_RIDES,
     };
 
     Intent *intent_create(rct_windowclass clss);

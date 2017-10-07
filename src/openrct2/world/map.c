@@ -24,7 +24,7 @@
 #include "../interface/window.h"
 #include "../localisation/date.h"
 #include "../localisation/localisation.h"
-#include "../management/finance.h"
+#include "../management/Finance.h"
 #include "../network/network.h"
 #include "../OpenRCT2.h"
 #include "../ride/ride_data.h"
@@ -420,7 +420,10 @@ void map_init(sint32 size)
     map_update_tile_pointers();
     map_remove_out_of_range_elements();
 
-    window_map_reset();
+
+    Intent * intent = intent_create(INTENT_ACTION_MAP);
+    context_broadcast_intent(intent);
+    intent_release(intent);
 }
 
 /**

@@ -1665,7 +1665,9 @@ rct_window *window_ride_open_vehicle(rct_vehicle *vehicle)
                 rct_window *w2 = window_find_by_number(WC_PEEP, peepSpriteIndex);
                 if (w2 == nullptr) {
                     rct_peep *peep = &(get_sprite(peepSpriteIndex)->peep);
-                    window_guest_open(peep);
+                    auto intent = Intent(WC_PEEP);
+                    intent.putExtra(INTENT_EXTRA_PEEP, peep);
+                    context_open_intent(&intent);
                     openedPeepWindow = 1;
 
                     break;
@@ -2676,7 +2678,7 @@ static void window_ride_vehicle_mousedown(rct_window *w, rct_widgetindex widgetI
     rct_widget *dropdownWidget = widget - 1;
     Ride *ride;
     rct_ride_entry *rideEntry, *currentRideEntry;
-    const ride_group * rideGroup, * currentRideGroup;
+    const RideGroup * rideGroup, * currentRideGroup;
     sint32 numItems, rideEntryIndex, selectedIndex, rideTypeIterator, rideTypeIteratorMax;
     uint8 *rideEntryIndexPtr;
     bool selectionShouldBeExpanded;
@@ -2722,12 +2724,12 @@ static void window_ride_vehicle_mousedown(rct_window *w, rct_widgetindex widgetI
                     continue;
 
                 // Skip if vehicle does not belong to the same ride group
-                if (ride_type_has_ride_groups(ride->type) && !selectionShouldBeExpanded)
+                if (RideGroupManager::RideTypeHasRideGroups(ride->type) && !selectionShouldBeExpanded)
                 {
-                    rideGroup = get_ride_group(ride->type, rideEntry);
-                    currentRideGroup = get_ride_group(ride->type, currentRideEntry);
+                    rideGroup = RideGroupManager::GetRideGroup(ride->type, rideEntry);
+                    currentRideGroup = RideGroupManager::GetRideGroup(ride->type, currentRideEntry);
 
-                    if (!ride_groups_are_equal(rideGroup, currentRideGroup))
+                    if (!RideGroupManager::RideGroupsAreEqual(rideGroup, currentRideGroup))
                         continue;
                 }
 
@@ -3655,7 +3657,11 @@ static void window_ride_locate_mechanic(rct_window *w)
     if (mechanic == nullptr)
         context_show_error(STR_UNABLE_TO_LOCATE_MECHANIC, STR_NONE);
     else
-        window_staff_open(mechanic);
+    {
+        auto intent = Intent(WC_PEEP);
+        intent.putExtra(INTENT_EXTRA_PEEP, mechanic);
+        context_open_intent(&intent);
+    }
 }
 
 /**
@@ -4113,7 +4119,7 @@ static void window_ride_set_track_colour_scheme(rct_window *w, sint32 x, sint32 
         return;
     if (mapElement->properties.track.ride_index != w->number)
         return;
-    if ((mapElement->properties.track.colour & 3) == newColourScheme)
+    if (track_element_get_colour_scheme(mapElement) == newColourScheme)
         return;
 
     z = mapElement->base_height * 8;

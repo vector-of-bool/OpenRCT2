@@ -1021,6 +1021,8 @@ extern sint32 gRideRemoveTrackPieceCallbackType;
 
 extern uint8 gLastEntranceStyle;
 
+sint32 ride_get_empty_slot();
+sint32 ride_get_default_mode(Ride *ride);
 sint32 ride_get_count();
 sint32 ride_get_total_queue_length(Ride *ride);
 sint32 ride_get_max_queue_time(Ride *ride);
@@ -1050,6 +1052,8 @@ sint32 ride_get_total_time(Ride *ride);
 sint32 ride_can_have_multiple_circuits(Ride *ride);
 track_colour ride_get_track_colour(Ride *ride, sint32 colourScheme);
 vehicle_colour ride_get_vehicle_colour(Ride *ride, sint32 vehicleIndex);
+sint32 ride_get_unused_preset_vehicle_colour(uint8 ride_type, uint8 ride_sub_type);
+void ride_set_vehicle_colours_to_random_preset(Ride *ride, uint8 preset_index);
 rct_ride_entry *get_ride_entry_by_ride(Ride *ride);
 uint8 *get_ride_entry_indices_for_ride_type(uint8 rideType);
 void reset_type_to_ride_entry_index_map();
@@ -1058,6 +1062,8 @@ void ride_measurements_update();
 rct_ride_measurement *ride_get_measurement(sint32 rideIndex, rct_string_id *message);
 void ride_breakdown_add_news_item(sint32 rideIndex);
 rct_peep *ride_find_closest_mechanic(Ride *ride, sint32 forInspection);
+sint32 ride_is_valid_for_open(sint32 rideIndex, sint32 goingToBeOpen, sint32 isApplying);
+sint32 ride_is_valid_for_test(sint32 rideIndex, sint32 goingToBeOpen, sint32 isApplying);
 sint32 ride_initialise_construction_window(sint32 rideIndex);
 void ride_construction_invalidate_current_track();
 sint32 sub_6C683D(sint32* x, sint32* y, sint32* z, sint32 direction, sint32 type, uint16 extra_params, rct_map_element** output_element, uint16 flags);
@@ -1073,6 +1079,10 @@ void ride_set_name(sint32 rideIndex, const char *name);
 void game_command_set_ride_name(sint32 *eax, sint32 *ebx, sint32 *ecx, sint32 *edx, sint32 *esi, sint32 *edi, sint32 *ebp);
 void game_command_set_ride_setting(sint32 *eax, sint32 *ebx, sint32 *ecx, sint32 *edx, sint32 *esi, sint32 *edi, sint32 *ebp);
 sint32 ride_get_refund_price(sint32 ride_id);
+sint32 ride_get_random_colour_preset_index(uint8 ride_type);
+void ride_set_colour_preset(Ride *ride, uint8 index);
+money32 ride_get_common_price(Ride *forRide);
+money32 shop_item_get_common_price(Ride *forRide, sint32 shopItem);
 bool shop_item_is_photo(sint32 shopItem);
 bool shop_item_has_common_price(sint32 shopItem);
 rct_ride_name get_ride_naming(uint8 rideType, rct_ride_entry * rideEntry);
@@ -1087,6 +1097,7 @@ void game_command_set_ride_price(sint32 *eax, sint32 *ebx, sint32 *ecx, sint32 *
 money32 ride_create_command(sint32 type, sint32 subType, sint32 flags, uint8 *outRideIndex, uint8 *outRideColour);
 void ride_set_name_to_default(Ride * ride, rct_ride_entry * rideEntry);
 
+void ride_set_name_to_track_default(Ride *ride, rct_ride_entry * rideEntry);
 void ride_clear_for_construction(sint32 rideIndex);
 void ride_entrance_exit_place_provisional_ghost();
 void ride_entrance_exit_remove_ghost();
@@ -1195,6 +1206,11 @@ bool ride_type_supports_boosters(uint8 rideType);
 sint32 get_booster_speed(uint8 rideType, sint32 rawSpeed);
 void fix_invalid_vehicle_sprite_sizes();
 bool ride_entry_has_category(const rct_ride_entry * rideEntry, uint8 category);
+
+sint32 ride_get_entry_index(sint32 rideType, sint32 rideSubType);
+
+void ride_demolish(sint32 rideIndex, sint32 flags);
+void ride_stop_peeps_queuing(sint32 rideIndex);
 
 #ifdef __cplusplus
 }

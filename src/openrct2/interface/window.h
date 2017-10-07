@@ -19,7 +19,7 @@
 
 #include "../common.h"
 #include "../drawing/drawing.h"
-#include "../management/research.h"
+#include "../management/Research.h"
 #include "../peep/peep.h"
 #include "../ride/ride.h"
 #include "../ride/TrackDesign.h"
@@ -499,7 +499,8 @@ enum {
     WV_PARK_RATING,
     WV_PARK_OBJECTIVE,
     WV_PARK_GUESTS,
-    WV_FINANCES_RESEARCH
+    WV_FINANCES_RESEARCH,
+    WV_RIDE_RESEARCH,
 
 };
 
@@ -533,6 +534,7 @@ enum {
 #define WC_WATER__WIDX_PREVIEW                          3
 #define WC_PEEP__WIDX_PATROL                            11
 #define WC_PEEP__WIDX_ACTION_LBL                        12
+#define WC_PEEP__WIDX_PICKUP                            13
 #define WC_TRACK_DESIGN_LIST__WIDX_ROTATE               5
 #define WC_TRACK_DESIGN_PLACE__WIDX_ROTATE              3
 #define WC_MAP__WIDX_LAND_TOOL                          13
@@ -540,6 +542,7 @@ enum {
 #define WC_EDITOR_OBJECT_SELECTION__WIDX_TAB_1          4
 #define WC_CLEAR_SCENERY__WIDX_PREVIEW                  3
 #define WC_LAND_RIGHTS__WIDX_PREVIEW                    3
+#define WC_STAFF__WIDX_PICKUP                           10
 
 enum PROMPT_MODE {
     PM_SAVE_BEFORE_LOAD = 0,
@@ -708,9 +711,6 @@ void window_top_toolbar_open();
 void window_game_bottom_toolbar_open();
 void window_game_bottom_toolbar_invalidate_news_item();
 void window_track_list_open(ride_list_item item);
-void window_map_open();
-void window_guest_open(rct_peep* peep);
-rct_window *window_staff_open(rct_peep* peep);
 rct_window *window_ride_main_open(sint32 rideIndex);
 rct_window *window_ride_open_station(sint32 rideIndex, sint32 stationIndex);
 rct_window *window_ride_open_track(rct_map_element *mapElement);
@@ -726,15 +726,9 @@ void ride_construction_tooldown_construct(sint32 screenX, sint32 screenY);
 
 
 void window_maze_construction_update_pressed_widgets();
-rct_window *window_new_ride_open();
-rct_window *window_new_ride_open_research();
 void window_network_status_open(const char* text, close_callback onClose);
 void window_network_status_close();
 void window_network_status_open_password();
-
-void window_research_open();
-void window_research_development_page_paint(rct_window *w, rct_drawpixelinfo *dpi, rct_widgetindex baseWidgetIndex);
-void window_research_funding_page_paint(rct_window *w, rct_drawpixelinfo *dpi, rct_widgetindex baseWidgetIndex);
 
 void window_scenery_open();
 void window_tile_inspector_open();
@@ -752,10 +746,6 @@ void window_bubble_list_item(rct_window* w, sint32 item_position);
 
 void window_align_tabs( rct_window *w, rct_widgetindex start_tab_id, rct_widgetindex end_tab_id );
 
-void window_new_ride_init_vars();
-void window_new_ride_focus(ride_list_item rideItem);
-
-void window_map_reset();
 void window_map_tooltip_update_visibility();
 
 void window_staff_list_init_vars();

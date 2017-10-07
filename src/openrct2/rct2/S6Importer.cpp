@@ -35,10 +35,10 @@
 #include "../interface/viewport.h"
 #include "../localisation/date.h"
 #include "../localisation/localisation.h"
-#include "../management/finance.h"
+#include "../management/Finance.h"
 #include "../management/marketing.h"
 #include "../management/news_item.h"
-#include "../management/research.h"
+#include "../management/Research.h"
 #include "../OpenRCT2.h"
 #include "../peep/staff.h"
 #include "../ride/ride.h"
@@ -358,7 +358,11 @@ public:
         gSavedViewY        = _s6.saved_view_y;
         gSavedViewZoom     = _s6.saved_view_zoom;
         gSavedViewRotation = _s6.saved_view_rotation;
-        memcpy(gAnimatedObjects, _s6.map_animations, sizeof(_s6.map_animations));
+
+        for (size_t i = 0; i < RCT2_MAX_ANIMATED_OBJECTS; i++)
+        {
+            gAnimatedObjects[i] = _s6.map_animations[i];
+        }
         gNumMapAnimations = _s6.num_map_animations;
         // pad_0138B582
 

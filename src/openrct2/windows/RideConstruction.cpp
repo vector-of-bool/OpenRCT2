@@ -644,13 +644,24 @@ static void window_ride_construction_close(rct_window *w)
     hide_gridlines();
 
     uint8 rideIndex = _currentRideIndex;
-    if (ride_try_get_origin_element(rideIndex, nullptr)) {
-        Ride *ride = get_ride(rideIndex);
+    Ride * ride = get_ride(rideIndex);
+
+    // If we demolish a ride all windows will be closed including the construction window,
+    // the ride at this point is already gone.
+    if (ride == nullptr || ride->type == RIDE_TYPE_NULL)
+    {
+        return;
+    }
+
+    if (ride_try_get_origin_element(rideIndex, nullptr)) 
+    {
         // Auto open shops if required.
-        if (ride->mode == RIDE_MODE_SHOP_STALL && gConfigGeneral.auto_open_shops) {
+        if (ride->mode == RIDE_MODE_SHOP_STALL && gConfigGeneral.auto_open_shops) 
+        {
             // HACK: Until we find a good a way to defer the game command for opening the shop, stop this
             //       from getting stuck in an infinite loop as opening the ride will try to close this window
-            if (!_autoOpeningShop) {
+            if (!_autoOpeningShop) 
+            {
                 _autoOpeningShop = true;
                 ride_set_status(rideIndex, RIDE_STATUS_OPEN);
                 _autoOpeningShop = false;
@@ -658,15 +669,14 @@ static void window_ride_construction_close(rct_window *w)
         }
 
         ride_set_to_default_inspection_interval(rideIndex);
-
         window_ride_main_open(rideIndex);
-    } else {
-        sint32 eax = gGamePaused;
-
+    }
+    else 
+    {
+        sint32 previousPauseState = gGamePaused;
         gGamePaused = 0;
-        game_do_command(0, 9, 0, rideIndex, GAME_COMMAND_DEMOLISH_RIDE, 0, 0);
-
-        gGamePaused = eax;
+        ride_demolish(rideIndex, GAME_COMMAND_FLAG_APPLY);
+        gGamePaused = previousPauseState;
     }
 }
 
@@ -2407,8 +2417,12 @@ static void sub_6CBCE2(
         _tempTrackMapElement.clearance_height = clearanceZ;
         _tempTrackMapElement.properties.track.type = trackType;
         map_element_set_track_sequence(&_tempTrackMapElement, trackBlock->index);
-        _tempTrackMapElement.properties.track.colour = (edx & 0x20000) ? 4 : 0;
+        _tempTrackMapElement.properties.track.colour = 0;
         _tempTrackMapElement.properties.track.ride_index = rideIndex;
+        if (edx & 0x20000)
+        {
+            track_element_set_inverted(&_tempTrackMapElement, true);
+        }
 
         // Draw this map tile
         sub_68B2B7(session, x, y);
@@ -2460,7 +2474,7 @@ void window_ride_construction_update_active_elements()
             _selectedTrackType = mapElement->properties.track.type;
             if (track_element_has_speed_setting(mapElement->properties.track.type))
                 _currentBrakeSpeed2 = map_element_get_brake_booster_speed(mapElement);
-            _currentSeatRotationAngle = mapElement->properties.track.colour >> 4;
+            _currentSeatRotationAngle = track_element_get_seat_rotation(mapElement);
         }
     }
 
@@ -2727,10 +2741,10 @@ static void window_ride_construction_update_enabled_track_pieces()
     }
     else
     {
-        if (ride_type_has_ride_groups(rideType))
+        if (RideGroupManager::RideTypeHasRideGroups(rideType))
         {
-            const ride_group * rideGroup = get_ride_group(rideType, rideEntry);
-            _enabledRidePieces = rideGroup->available_track_pieces;
+            const RideGroup * rideGroup = RideGroupManager::GetRideGroup(rideType, rideEntry);
+            _enabledRidePieces = rideGroup->AvailableTrackPieces;
         }
         else
         {

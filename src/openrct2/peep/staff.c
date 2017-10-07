@@ -22,7 +22,7 @@
 #include "../localisation/date.h"
 #include "../localisation/localisation.h"
 #include "../localisation/string_ids.h"
-#include "../management/finance.h"
+#include "../management/Finance.h"
 #include "../network/network.h"
 #include "../scenario/scenario.h"
 #include "../util/util.h"
@@ -365,21 +365,6 @@ void game_command_hire_new_staff_member(sint32* eax, sint32* ebx, sint32* ecx, s
                                        *edx & 0xFFFF,
                                        (*ebx & 0xFF0000) >> 16,
                                        edi);
-}
-
-void game_command_callback_hire_new_staff_member(sint32 eax, sint32 ebx, sint32 ecx, sint32 edx, sint32 esi, sint32 edi, sint32 ebp)
-{
-    sint32 sprite_index = edi;
-    if (sprite_index == SPRITE_INDEX_NULL)
-    {
-        rct_window *window = window_find_by_class(WC_STAFF_LIST);
-        window_invalidate(window);
-    }
-    else
-    {
-        rct_peep *peep = &get_sprite(sprite_index)->peep;
-        window_staff_open(peep);
-    }
 }
 
 /** rct2: 0x00982134 */
@@ -1512,29 +1497,6 @@ sint32 staff_path_finding(rct_peep* peep) {
         assert(false);
         return 0;
     }
-}
-
-void game_command_set_staff_name(sint32 *eax, sint32 *ebx, sint32 *ecx, sint32 *edx, sint32 *esi, sint32 *edi, sint32 *ebp) {
-    uint16 sprite_index = *ecx & 0xFFFF;
-
-    if (sprite_index >= MAX_SPRITES) {
-        *ebx = MONEY32_UNDEFINED;
-        return;
-    }
-    rct_peep *peep = GET_PEEP(sprite_index);
-    if (peep->type != PEEP_TYPE_STAFF) {
-        *ebx = MONEY32_UNDEFINED;
-        return;
-    }
-
-    *ebx = set_peep_name(
-        *ebx & 0xFF,
-        *eax & 0xFFFF,
-        sprite_index,
-        (uint8*)edx,
-        (uint8*)ebp,
-        (uint8*)edi
-    );
 }
 
 void game_command_pickup_staff(sint32* eax, sint32* ebx, sint32* ecx, sint32* edx, sint32* esi, sint32* edi, sint32* ebp)

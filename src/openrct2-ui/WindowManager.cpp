@@ -17,6 +17,7 @@
 #include <openrct2/ui/WindowManager.h>
 #include <openrct2-ui/windows/Window.h>
 #include <openrct2/core/Console.hpp>
+#include <openrct2/config/Config.h>
 #include "input/input.h"
 #include "input/KeyboardShortcuts.h"
 #include "WindowManager.h"
@@ -29,11 +30,13 @@ public:
     void Init() override
     {
         window_guest_list_init_vars();
+        window_new_ride_init_vars();
     }
 
     rct_window * OpenWindow(rct_windowclass wc) override
     {
-        switch (wc) {
+        switch (wc)
+        {
         case WC_ABOUT:
             return window_about_open();
         case WC_CHANGELOG:
@@ -64,16 +67,22 @@ public:
             return window_land_rights_open();
         case WC_MAIN_WINDOW:
             return window_main_open();
+        case WC_MAP:
+            return window_map_open();
         case WC_MAPGEN:
             return window_mapgen_open();
         case WC_MULTIPLAYER:
             return window_multiplayer_open();
         case WC_MUSIC_CREDITS:
             return window_music_credits_open();
+        case WC_CONSTRUCT_RIDE:
+            return window_new_ride_open();
         case WC_PARK_INFORMATION:
             return window_park_entrance_open();
         case WC_RECENT_NEWS:
             return window_news_open();
+        case WC_RESEARCH:
+            return window_research_open();
         case WC_NOTIFICATION_OPTIONS:
             return window_news_options_open();
         case WC_OPTIONS:
@@ -112,7 +121,8 @@ public:
 
     rct_window * OpenView(uint8 view) override
     {
-        switch (view) {
+        switch (view)
+        {
         case WV_PARK_AWARDS:
             return window_park_awards_open();
         case WV_PARK_RATING:
@@ -123,6 +133,15 @@ public:
             return window_park_guests_open();
         case WV_FINANCES_RESEARCH:
             return window_finances_research_open();
+        case WV_RIDE_RESEARCH:
+            if (gConfigInterface.toolbar_show_research)
+            {
+                return this->OpenWindow(WC_RESEARCH);
+            }
+            else
+            {
+                return window_new_ride_open_research();
+            }
         default:
             return nullptr;
         }
@@ -158,19 +177,22 @@ public:
 
     rct_window * OpenIntent(Intent * intent) override
     {
-        switch(intent->GetWindowClass()) {
+        switch (intent->GetWindowClass())
+        {
+        case WC_PEEP:
+            return window_guest_open((rct_peep*)intent->GetPointerExtra(INTENT_EXTRA_PEEP));
         case WC_FIRE_PROMPT:
             return window_staff_fire_prompt_open((rct_peep*)intent->GetPointerExtra(INTENT_EXTRA_PEEP));
         case WC_INSTALL_TRACK:
-            return window_install_track_open(intent->GetStringExtra(INTENT_EXTRA_PATH));
+            return window_install_track_open(intent->GetStringExtra(INTENT_EXTRA_PATH).c_str());
         case WC_GUEST_LIST:
             return window_guest_list_open_with_filter(intent->GetSIntExtra(INTENT_EXTRA_GUEST_LIST_FILTER), intent->GetSIntExtra(INTENT_EXTRA_RIDE_ID));
         case WC_LOADSAVE:
         {
             uint32 type = intent->GetUIntExtra(INTENT_EXTRA_LOADSAVE_TYPE);
-            const utf8 *defaultName = intent->GetStringExtra(INTENT_EXTRA_PATH);
+            std::string defaultName = intent->GetStringExtra(INTENT_EXTRA_PATH);
             loadsave_callback callback = (loadsave_callback) intent->GetPointerExtra(INTENT_EXTRA_CALLBACK);
-            rct_window *w = window_loadsave_open(type, defaultName);
+            rct_window *w = window_loadsave_open(type, defaultName.c_str());
             window_loadsave_set_loadsave_callback(callback);
 
             return w;
@@ -181,9 +203,37 @@ public:
             return window_track_place_open((track_design_file_ref *) intent->GetPointerExtra(INTENT_EXTRA_TRACK_DESIGN));
         case WC_SCENARIO_SELECT:
             return window_scenarioselect_open((scenarioselect_callback) intent->GetPointerExtra(INTENT_EXTRA_CALLBACK));
+        case INTENT_ACTION_NEW_RIDE_OF_TYPE:
+        {
+            // Open ride list window
+            auto w = window_new_ride_open();
+
+            // Switch to right tab and scroll to ride location
+            ride_list_item rideItem;
+            rideItem.type = intent->GetUIntExtra(INTENT_EXTRA_RIDE_TYPE);
+            rideItem.entry_index = intent->GetUIntExtra(INTENT_EXTRA_RIDE_ENTRY_INDEX);
+            window_new_ride_focus(rideItem);
+
+            return w;
+        }
+            break;
         default:
             Console::Error::WriteLine("Unhandled window class for intent (%d)", intent->GetWindowClass());
             return nullptr;
+        }
+    }
+
+    void BroadcastIntent(Intent * intent) override
+    {
+        switch (intent->GetWindowClass())
+        {
+        case INTENT_ACTION_MAP:
+            window_map_reset();
+            break;
+
+        case INTENT_ACTION_REFRESH_NEW_RIDES:
+            window_new_ride_init_vars();
+            break;
         }
     }
 

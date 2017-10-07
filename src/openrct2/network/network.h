@@ -44,12 +44,14 @@ enum {
 #include "../Version.h"
 #include "NetworkTypes.h"
 
+typedef struct GameAction GameAction;
+
 #ifndef DISABLE_NETWORK
 
 // This define specifies which version of network stream current build uses.
 // It is used for making sure only compatible builds get connected, even within
 // single OpenRCT2 version.
-#define NETWORK_STREAM_VERSION "4"
+#define NETWORK_STREAM_VERSION "8"
 #define NETWORK_STREAM_ID OPENRCT2_VERSION "-" NETWORK_STREAM_VERSION
 
 #ifdef __cplusplus
@@ -60,10 +62,13 @@ enum {
 #include <memory>
 #include <string>
 #include <vector>
+#include <functional>
 #include <map>
 #include <openssl/evp.h>
+#include "../actions/GameAction.h"
 #include "../core/Json.hpp"
 #include "../core/Nullable.hpp"
+#include "../core/MemoryStream.h"
 #include "NetworkConnection.h"
 #include "NetworkGroup.h"
 #include "NetworkKey.h"
@@ -72,7 +77,6 @@ enum {
 #include "NetworkServerAdvertiser.h"
 #include "NetworkUser.h"
 #include "TcpSocket.h"
-
 
 enum {
     NETWORK_TICK_FLAG_CHECKSUMS = 1 << 0,
@@ -101,7 +105,9 @@ public:
     uint32 GetServerTick();
     uint8 GetPlayerID();
     void Update();
+    void Flush();
     void ProcessGameCommandQueue();
+    void EnqueueGameAction(const GameAction *action);
     std::vector<std::unique_ptr<NetworkPlayer>>::iterator GetPlayerIteratorByID(uint8 id);
     NetworkPlayer* GetPlayerByID(uint8 id);
     std::vector<std::unique_ptr<NetworkGroup>>::iterator GetGroupIteratorByID(uint8 id);
@@ -109,6 +115,7 @@ public:
     static const char* FormatChat(NetworkPlayer* fromplayer, const char* text);
     void SendPacketToClients(NetworkPacket& packet, bool front = false, bool gameCmd = false);
     bool CheckSRAND(uint32 tick, uint32 srand0);
+    void CheckDesynchronizaton();
     void KickPlayer(sint32 playerId);
     void SetPassword(const char* password);
     void ShutdownClient();
@@ -141,6 +148,8 @@ public:
     void Server_Send_CHAT(const char* text);
     void Client_Send_GAMECMD(uint32 eax, uint32 ebx, uint32 ecx, uint32 edx, uint32 esi, uint32 edi, uint32 ebp, uint8 callback);
     void Server_Send_GAMECMD(uint32 eax, uint32 ebx, uint32 ecx, uint32 edx, uint32 esi, uint32 edi, uint32 ebp, uint8 playerid, uint8 callback);
+    void Client_Send_GAME_ACTION(const GameAction *action);
+    void Server_Send_GAME_ACTION(const GameAction *action);
     void Server_Send_TICK();
     void Server_Send_PLAYERLIST();
     void Client_Send_PING();
@@ -160,6 +169,7 @@ public:
     std::vector<std::unique_ptr<NetworkGroup>> group_list;
     NetworkKey _key;
     std::vector<uint8> _challenge;
+    std::map<uint32, GameAction::Callback_t> _gameActionCallbacks;
     NetworkUserManager _userManager;
 
     std::string ServerName;
@@ -186,16 +196,32 @@ private:
 
     struct GameCommand
     {
-        GameCommand(uint32 t, uint32* args, uint8 p, uint8 cb) {
+        GameCommand(uint32 t, uint32* args, uint8 p, uint8 cb, uint32 id) {
             tick = t; eax = args[0]; ebx = args[1]; ecx = args[2]; edx = args[3];
             esi = args[4]; edi = args[5]; ebp = args[6]; playerid = p; callback = cb;
+            action = nullptr;
+            commandIndex = id;
         }
-        uint32 tick;
-        uint32 eax, ebx, ecx, edx, esi, edi, ebp;
-        uint8 playerid;
-        uint8 callback;
+
+        GameCommand(uint32 t, std::unique_ptr<GameAction>&& ga, uint32 id)
+        {
+            tick = t;
+            action = std::move(ga);
+            commandIndex = id;
+        }
+
+        ~GameCommand()
+        {
+        }
+
+        uint32 tick = 0;
+        uint32 eax = 0, ebx = 0, ecx = 0, edx = 0, esi = 0, edi = 0, ebp = 0;
+        GameAction::Ptr action;
+        uint8 playerid = 0;
+        uint8 callback = 0;
+        uint32 commandIndex = 0;
         bool operator<(const GameCommand& comp) const {
-            return tick < comp.tick;
+            return tick < comp.tick && commandIndex < comp.commandIndex;
         }
     };
 
@@ -224,6 +250,8 @@ private:
     uint32 server_connect_time = 0;
     uint8 default_group = 0;
     uint32 game_commands_processed_this_tick = 0;
+    uint32 _commandId;
+    uint32 _actionId;
     std::string _chatLogPath;
     std::string _chatLogFilenameFormat = "%Y%m%d-%H%M%S.txt";
     std::string _serverLogPath;
@@ -244,6 +272,8 @@ private:
     void Server_Handle_CHAT(NetworkConnection& connection, NetworkPacket& packet);
     void Client_Handle_GAMECMD(NetworkConnection& connection, NetworkPacket& packet);
     void Server_Handle_GAMECMD(NetworkConnection& connection, NetworkPacket& packet);
+    void Client_Handle_GAME_ACTION(NetworkConnection& connection, NetworkPacket& packet);
+    void Server_Handle_GAME_ACTION(NetworkConnection& connection, NetworkPacket& packet);
     void Client_Handle_TICK(NetworkConnection& connection, NetworkPacket& packet);
     void Client_Handle_PLAYERLIST(NetworkConnection& connection, NetworkPacket& packet);
     void Client_Handle_PING(NetworkConnection& connection, NetworkPacket& packet);
@@ -279,8 +309,12 @@ sint32 network_begin_server(sint32 port, const char* address);
 
 sint32 network_get_mode();
 sint32 network_get_status();
+void network_check_desynchronization();
+void network_send_tick();
 void network_update();
 void network_process_game_commands();
+void network_flush();
+
 sint32 network_get_authstatus();
 uint32 network_get_server_tick();
 uint8 network_get_current_player_id();
@@ -320,6 +354,8 @@ sint32 network_get_pickup_peep_old_x(uint8 playerid);
 void network_send_map();
 void network_send_chat(const char* text);
 void network_send_gamecmd(uint32 eax, uint32 ebx, uint32 ecx, uint32 edx, uint32 esi, uint32 edi, uint32 ebp, uint8 callback);
+void network_send_game_action(const GameAction *action);
+void network_enqueue_game_action(const GameAction *action);
 void network_send_password(const char* password);
 
 void network_set_password(const char* password);

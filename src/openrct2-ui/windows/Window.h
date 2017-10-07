@@ -33,6 +33,7 @@ rct_window * window_editor_inventions_list_open();
 rct_window * window_editor_objective_options_open();
 rct_window * window_editor_scenario_options_open();
 rct_window * window_footpath_open();
+rct_window * window_guest_open(rct_peep* peep);
 rct_window * window_land_open();
 rct_window * window_land_rights_open();
 rct_window * window_main_open();
@@ -48,6 +49,7 @@ rct_window * window_server_start_open();
 rct_window * window_shortcut_change_open(sint32 selected_key);
 rct_window * window_shortcut_keys_open();
 rct_window * window_staff_list_open();
+rct_window * window_staff_open(rct_peep* peep);
 rct_window * window_themes_open();
 rct_window * window_title_exit_open();
 rct_window * window_title_logo_open();
@@ -90,3 +92,15 @@ rct_window * window_loadsave_open(sint32 type, const char *defaultName);
 void window_loadsave_set_loadsave_callback(loadsave_callback cb);
 rct_window * window_track_place_open(const struct track_design_file_ref *tdFileRef);
 rct_window * window_track_manage_open(struct track_design_file_ref *tdFileRef);
+
+rct_window * window_map_open();
+void window_map_reset();
+
+rct_window * window_research_open();
+void window_research_development_page_paint(rct_window * w, rct_drawpixelinfo * dpi, rct_widgetindex baseWidgetIndex);
+void window_research_funding_page_paint(rct_window * w, rct_drawpixelinfo * dpi, rct_widgetindex baseWidgetIndex);
+
+rct_window * window_new_ride_open();
+rct_window * window_new_ride_open_research();
+void window_new_ride_init_vars();
+void window_new_ride_focus(ride_list_item rideItem);

@@ -18,8 +18,8 @@
 #define _SCENARIO_H_
 
 #include "../common.h"
-#include "../management/finance.h"
-#include "../management/research.h"
+#include "../management/Finance.h"
+#include "../management/Research.h"
 #include "../object.h"
 #include "../rct12.h"
 #include "../rct2.h"
@@ -262,7 +262,7 @@ typedef struct rct_s6_data {
     uint16 saved_view_y;
     uint8 saved_view_zoom;
     uint8 saved_view_rotation;
-    rct_map_animation map_animations[2000];
+    rct_map_animation map_animations[RCT2_MAX_ANIMATED_OBJECTS];
     uint16 num_map_animations;
     uint8 pad_0138B582[2];
     rct_ride_rating_calc_data ride_ratings_calc_data;

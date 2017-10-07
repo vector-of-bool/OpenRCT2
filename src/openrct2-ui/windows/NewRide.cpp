@@ -14,25 +14,26 @@
  *****************************************************************************/
 #pragma endregion
 
-#include "../config/Config.h"
-#include "../network/network.h"
-#include "../OpenRCT2.h"
-#include "../ride/RideGroupManager.h"
-#include "../ride/TrackDesignRepository.h"
-#include "../core/Util.hpp"
-#include "../core/Math.hpp"
-#include "../Context.h"
+#include <openrct2-ui/windows/Window.h>
 
-#include "../audio/audio.h"
-#include "../game.h"
-#include "../interface/widget.h"
-#include "../localisation/localisation.h"
-#include "../management/news_item.h"
-#include "../rct1.h"
-#include "../ride/ride_data.h"
-#include "../ride/track_data.h"
-#include "../sprites.h"
-#include "../util/util.h"
+#include <openrct2/config/Config.h>
+#include <openrct2/network/network.h>
+#include <openrct2/OpenRCT2.h>
+#include <openrct2/ride/RideGroupManager.h>
+#include <openrct2/ride/TrackDesignRepository.h>
+#include <openrct2/core/Util.hpp>
+#include <openrct2/core/Math.hpp>
+#include <openrct2/Context.h>
+#include <openrct2/audio/audio.h>
+#include <openrct2/game.h>
+#include <openrct2/interface/widget.h>
+#include <openrct2/localisation/localisation.h>
+#include <openrct2/management/news_item.h>
+#include <openrct2/rct1.h>
+#include <openrct2/ride/ride_data.h>
+#include <openrct2/ride/track_data.h>
+#include <openrct2/sprites.h>
+#include <openrct2/util/util.h>
 
 static uint8 _windowNewRideCurrentTab;
 static ride_list_item _windowNewRideHighlightedItem[6];
@@ -313,7 +314,7 @@ static void window_new_ride_populate_list()
 
         if (ride_type_is_invented(rideType) || gCheatsIgnoreResearchStatus) {
 
-            if (!ride_type_has_ride_groups(rideType)) {
+            if (!RideGroupManager::RideTypeHasRideGroups(rideType)) {
                 nextListItem = window_new_ride_iterate_over_ride_group(rideType, 0, nextListItem);
             }
             else {
@@ -358,12 +359,12 @@ static ride_list_item * window_new_ride_iterate_over_ride_group(uint8 rideType, 
         if (!gConfigInterface.select_by_track_type && !ride_entry_has_category(rideEntry, currentCategory))
             continue;
 
-        if (ride_type_has_ride_groups(rideType))
+        if (RideGroupManager::RideTypeHasRideGroups(rideType))
         {
-            const ride_group * rideEntryRideGroup = get_ride_group(rideType, rideEntry);
-            const ride_group * rideGroup = ride_group_find(rideType, rideGroupIndex);
+            const RideGroup * rideEntryRideGroup = RideGroupManager::GetRideGroup(rideType, rideEntry);
+            const RideGroup * rideGroup = RideGroupManager::RideGroupFind(rideType, rideGroupIndex);
 
-			if (!ride_groups_are_equal(rideEntryRideGroup, rideGroup))
+            if (!RideGroupManager::RideGroupsAreEqual(rideEntryRideGroup, rideGroup))
                 continue;
         }
 
@@ -373,7 +374,7 @@ static ride_list_item * window_new_ride_iterate_over_ride_group(uint8 rideType, 
                 safe_strcpy(preferredVehicleName, rideEntryName, sizeof(preferredVehicleName));
                 preferredVehicleName[8] = 0;
             } else {
-                if (vehicle_preference_compare(rideType, preferredVehicleName, rideEntryName) == 1) {
+                if (RideGroupManager::VehiclePreferenceCompare(rideType, preferredVehicleName, rideEntryName) == 1) {
                     safe_strcpy(preferredVehicleName, rideEntryName, sizeof(preferredVehicleName));
                     preferredVehicleName[8] = 0;
                 } else {
@@ -539,13 +540,13 @@ void window_new_ride_focus(ride_list_item rideItem)
     // In this case, select the first entry that belongs to the same ride group.
     if (!entryFound && gConfigInterface.select_by_track_type)
     {
-        const ride_group * rideGroup = get_ride_group(rideTypeIndex, rideEntry);
+        const RideGroup * rideGroup = RideGroupManager::GetRideGroup(rideTypeIndex, rideEntry);
 
         for (ride_list_item *listItem = _windowNewRideListItems; listItem->type != RIDE_TYPE_NULL; listItem++) {
             if (listItem->type == rideItem.type) {
-                const ride_group * irg = get_ride_group(rideTypeIndex, rideEntry);
+                const RideGroup * irg = RideGroupManager::GetRideGroup(rideTypeIndex, rideEntry);
 
-                if (!ride_type_has_ride_groups(rideTypeIndex) || ride_groups_are_equal(rideGroup, irg)) {
+                if (!RideGroupManager::RideTypeHasRideGroups(rideTypeIndex) || RideGroupManager::RideGroupsAreEqual(rideGroup, irg)) {
                     _windowNewRideHighlightedItem[0] = rideItem;
                     w->new_ride.highlighted_ride_id = rideItem.ride_type_and_entry;
                     window_new_ride_scroll_to_focused_ride(w);
@@ -916,9 +917,9 @@ static sint32 get_num_track_designs(ride_list_item item)
         }
     }
 
-    if (rideEntry != nullptr && ride_type_has_ride_groups(item.type))
+    if (rideEntry != nullptr && RideGroupManager::RideTypeHasRideGroups(item.type))
     {
-        const ride_group * rideGroup = get_ride_group(item.type, rideEntry);
+        const RideGroup * rideGroup = RideGroupManager::GetRideGroup(item.type, rideEntry);
         return (sint32)track_repository_get_count_for_ride_group(item.type, rideGroup);
     }
 
